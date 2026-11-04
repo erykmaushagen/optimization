@@ -1,4 +1,4 @@
-# Fachprojekt Performance in Scientific Computing
+
 
 This repository contains the micro benchmarks for the Fachprojekt Performance in Scientific Computing. The goal is to find one or multiple bottlenecks in performance for each of the benchmarks and try to rewrite the code in a way that improves performance.
 
