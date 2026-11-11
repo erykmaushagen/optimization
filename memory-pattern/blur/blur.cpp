@@ -28,20 +28,7 @@ static void filterVertically(uint8_t *output, const uint8_t *input, const int wi
             int value = static_cast<int>(dot / static_cast<float>(sum) + 0.5f);
             output[r * width + c] = static_cast<uint8_t>(value);
         }
-
-        // Middle part of computations with full kernel
-        for (int r = radius; r < height - radius; r++) {
-            // Accumulation
-            int dot = 0;
-            for (int i = 0; i < radius + 1 + radius; i++) {
-                dot += input[(r - radius + i) * width + c] * kernel[i];
-            }
-
-            // Fast shift instead of division
-            int value = (dot + rounding) >> shift;
-            output[r * width + c] = static_cast<uint8_t>(value);
-        }
-
+        
         // Bottom part of line, partial kernel
         for (int r = std::max(radius, height - radius); r < height; r++) {
             // Accumulation
@@ -53,9 +40,24 @@ static void filterVertically(uint8_t *output, const uint8_t *input, const int wi
                 dot += input[y * width + c] * weight;
                 sum += weight;
             }
-
+            
             // Normalization
             int value = static_cast<int>(dot / static_cast<float>(sum) + 0.5f);
+            output[r * width + c] = static_cast<uint8_t>(value);
+        }
+    }
+
+    // // Middle part of computations with full kernel
+    for (int r = radius; r < height - radius; r++) {
+        // Accumulation
+        for (int c = 0; c < width; c++) {
+            int dot = 0;
+
+            for (int i = 0; i < 2 * radius + 1; i++) {
+                dot += input[(r - radius + i) * width + c] * kernel[i];
+            }
+
+            int value = (dot + rounding) >> shift;
             output[r * width + c] = static_cast<uint8_t>(value);
         }
     }
@@ -189,7 +191,7 @@ void blur(uint8_t *output, const uint8_t *input, const int width, const int heig
 }
 
 // Loads grayscale image. Format is
-// https://people.sc.fsu.edu/~jburkardt/data/pgmb/pgmb.html Function doesn't
+// https://people.sc.fsu.edu/~jburkardt/data/pgmb/kernelpgmb.html Function doesn't
 // support comments.
 bool Grayscale::load(const std::string &filename, const int maxSize) {
     data.reset();
