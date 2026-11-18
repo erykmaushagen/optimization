@@ -12,17 +12,24 @@ enum BenchmarkType {
 };
 
 int scalarSumWithMask(const uint32_t *indBonus, const int32_t *recBonus, size_t size) {
-    uint64_t sum = 10;
+    uint64_t sum = 0;
     // TODO: Implement the following query logic
     //   SELECT SUM(Employees.IndividualBonus)
     //   FROM Employees
     //   WHERE Employees.ReceivedBonus = -1
+    for (int i = 0; i < size; i++){
+        if(recBonus[i] == -1) sum += indBonus[i];
+    }
     return sum;
 }
 
 int sseSumWithMask(const uint32_t *indBonus, const int32_t *recBonus, std::size_t size) {
     uint64_t sum = 0;
     // TODO: Implement using SSE intrinsics
+
+    for (int i = 0; i < size; i++){ // Idee: lade 8 lanes, statt nur ein array element zu betrachten
+        if(recBonus[i] == -1) sum += indBonus[i];
+    }
     return sum;
 }
 
