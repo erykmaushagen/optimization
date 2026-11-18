@@ -24,13 +24,35 @@ int scalarSumWithMask(const uint32_t *indBonus, const int32_t *recBonus, size_t 
 }
 
 int sseSumWithMask(const uint32_t *indBonus, const int32_t *recBonus, std::size_t size) {
-    uint64_t sum = 0;
-    // TODO: Implement using SSE intrinsics
+    
+    __m128i sum = _mm_setzero_si128(); //  128-bit SIMD-Register auf zero mit32 bit lanes
 
-    for (int i = 0; i < size; i++){ // Idee: lade 8 lanes, statt nur ein array element zu betrachten
-        if(recBonus[i] == -1) sum += indBonus[i];
+    for (std::size_t i = 0; i + 4 <= size; i += 4){ // Idee: lade 8 lanes, statt nur ein array element zu betrachten
+        __m128i ind = _mm_loadu_si128((const __m128i*)(indBonus + i));
+        __m128i red = _mm_loadu_si128((const __m128i*)(recBonus + i));
+
+        // erzeuge maske mit 128 bit auf 1
+        __m128i mask = _mm_cmpeq_epi32(red, _mm_set1_epi32(-1));
+
+        // bitwise-and mit gezeogenen 128 bit und mit 128 bit Maske auf 1 
+        __m128i filtered = _mm_and_si128(ind, mask);
+
+        // bilde summe für jede lane
+        sum = _mm_add_epi32(sum, filtered);
     }
-    return sum;
+    // addiere lanes zusammen
+    __m128i sum2 = _mm_hadd_epi32(sum, sum);
+    sum2 = _mm_hadd_epi32(sum2, sum2);
+    int result = _mm_cvtsi128_si32(sum2);
+
+    for (std::size_t i = size - (size % 4); i < size; ++i) {
+        if (recBonus[i] == -1) {
+            result += indBonus[i];
+        }
+    }
+
+    return result;
+    
 }
 
 int optimizedSumWithMask(const uint32_t *indBonus, const int32_t *recBonus, size_t size) {
