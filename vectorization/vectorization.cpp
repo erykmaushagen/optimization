@@ -56,9 +56,41 @@ int sseSumWithMask(const uint32_t *indBonus, const int32_t *recBonus, std::size_
 }
 
 int optimizedSumWithMask(const uint32_t *indBonus, const int32_t *recBonus, size_t size) {
-    uint64_t sum = 0;
-    // TODO: Try SIMD intrinsics with larger registers (AVX2, AVX512) and/or other optimizations
-    return sum;
+
+    __m256i sum = _mm256_setzero_si256(); // 256-bit SIMD-Register mit 8 x 32-bit Lanes
+
+    for (std::size_t i = 0; i + 8 <= size; i += 8) {
+        __m256i ind = _mm256_loadu_si256((const __m256i*)(indBonus + i));
+        __m256i red = _mm256_loadu_si256((const __m256i*)(recBonus + i));
+
+        // Erzeuge Maske: 0xFFFFFFFF, wenn rec == -1
+        __m256i mask = _mm256_cmpeq_epi32(red, _mm256_set1_epi32(-1));
+
+        // Bitwise AND mit Maske
+        __m256i filtered = _mm256_and_si256(ind, mask);
+
+        // Addiere die Werte laneweise
+        sum = _mm256_add_epi32(sum, filtered);
+    }
+
+    // Addiere die 8 Lanes zusammen
+    __m128i low = _mm256_castsi256_si128(sum);
+    __m128i high = _mm256_extracti128_si256(sum, 1);
+
+    __m128i sum2 = _mm_add_epi32(low, high);
+    sum2 = _mm_hadd_epi32(sum2, sum2);
+    sum2 = _mm_hadd_epi32(sum2, sum2);
+
+    int result = _mm_cvtsi128_si32(sum2);
+
+    // Verarbeite verbleibende Elemente
+    for (std::size_t i = size - (size % 8); i < size; ++i) {
+        if (recBonus[i] == -1) {
+            result += indBonus[i];
+        }
+    }
+
+    return result;
 }
 
 void compare_results(const uint32_t *indBonus, const int32_t *recBonus, const std::size_t elements) {
