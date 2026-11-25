@@ -6,6 +6,7 @@
 #include <tuple>
 #include <thread>
 #include <mutex>
+#include <chrono>
 
 uint32_t filtered_bonus(uint32_t &bonus) {
     if (bonus < 3000) {
@@ -34,7 +35,7 @@ void helper(uint32_t *allBonuses, const uint32_t *wrongBonus,
 
 int multi_bonus_error(uint32_t *allBonuses, const uint32_t *wrongBonus,
                       size_t wrongBonusSize) {
-    const size_t thread_count = 7;
+    const size_t thread_count = std::thread::hardware_concurrency(); // for f) get max amount of threads
     const size_t thread_capacity = wrongBonusSize / thread_count;
 
     uint64_t *intermediate_sum = new uint64_t[thread_count];
@@ -67,10 +68,13 @@ int multi_bonus_error(uint32_t *allBonuses, const uint32_t *wrongBonus,
     return sum;
 }
 
-bool run_benchmark(uint32_t *allBonuses, const uint32_t *wrongBonus, const std::size_t elements, const uint16_t iterations) {
+
+bool run_benchmark(uint32_t *allBonuses, const uint32_t *wrongBonus,
+                   const std::size_t elements, const uint16_t iterations) {
     auto counter_definitions = perf::CounterDefinition{"../events.csv"};
     auto config = perf::Config{};
     config.include_kernel(false);
+    config.include_child_threads(true);
     auto event_counter = perf::EventCounter{counter_definitions, config};
 
     try {
@@ -82,48 +86,66 @@ bool run_benchmark(uint32_t *allBonuses, const uint32_t *wrongBonus, const std::
 
     auto sum_baseline = 0;
     auto sum_multi = 0;
-    try {
-        event_counter.start();
-    } catch (std::runtime_error &e) {
-        std::cerr << e.what() << std::endl;
-        exit(1);
-    }
+
+    // Baseline
+    event_counter.start();
+
+    auto start_baseline = std::chrono::high_resolution_clock::now();
+
     for (uint32_t i = 0; i < iterations; ++i) {
         sum_baseline = baseline_bonus_error(allBonuses, wrongBonus, elements);
     }
+
+    auto end_baseline = std::chrono::high_resolution_clock::now();
+
     event_counter.stop();
 
     const auto result_baseline = event_counter.result();
 
-    try {
-        event_counter.start();
-    } catch (std::runtime_error &e) {
-        std::cerr << e.what() << std::endl;
-        exit(1);
-    }
+    double time_baseline =
+        std::chrono::duration<double, std::milli>(
+            end_baseline - start_baseline).count();
+
+    // Multi-threaded
+    event_counter.start();
+
+    auto start_multi = std::chrono::high_resolution_clock::now();
+
     for (uint32_t i = 0; i < iterations; ++i) {
         sum_multi = multi_bonus_error(allBonuses, wrongBonus, elements);
     }
+
+    auto end_multi = std::chrono::high_resolution_clock::now();
+
     event_counter.stop();
 
-    /// Calculate the result.
     const auto result_multi = event_counter.result();
 
-    
-    // Print as CSV
+    double time_multi = std::chrono::duration<double, std::milli>( end_multi - start_multi).count();
+
+    // Print results
     std::string additional = "baseline";
     std::cout << result_baseline.to_csv(',', true, additional) << std::endl;
-    
+
     additional = "multi threaded";
     std::cout << result_multi.to_csv(',', false, additional) << std::endl;
 
+    // Print wall-clock time and speed-up
+    double speedup = time_baseline / time_multi;
+
+    std::cout << "\nWall-clock time:" << std::endl;
+    std::cout << "Baseline:       " << time_baseline << " ms" << std::endl;
+    std::cout << "Multi-threaded: " << time_multi << " ms" << std::endl;
+    std::cout << "Speed-up:       " << speedup << "x" << std::endl;
+
     if (sum_baseline != sum_multi) {
-        std::cerr << "Sum results are not the same, baseline is " << sum_baseline << ", multi threaded is " << sum_multi << std::endl;
+        std::cerr << "Sum results are not the same, baseline is "<< sum_baseline << ", multi threaded is " << sum_multi << std::endl;
         return false;
     }
 
     return true;
 }
+
 
 int main() {
     const uint32_t allBonuses_size_in_mb = 1000;
