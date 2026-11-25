@@ -36,6 +36,8 @@ void helper(uint32_t *allBonuses, const uint32_t *wrongBonus,
 int multi_bonus_error(uint32_t *allBonuses, const uint32_t *wrongBonus,
                       size_t wrongBonusSize) {
     const size_t thread_count = std::thread::hardware_concurrency(); // for f) get max amount of threads
+    std::cerr << thread_count <<std::endl;
+    // const size_t thread_count  =  100;
     const size_t thread_capacity = wrongBonusSize / thread_count;
 
     uint64_t *intermediate_sum = new uint64_t[thread_count];
@@ -133,10 +135,10 @@ bool run_benchmark(uint32_t *allBonuses, const uint32_t *wrongBonus,
     // Print wall-clock time and speed-up
     double speedup = time_baseline / time_multi;
 
-    std::cout << "\nWall-clock time:" << std::endl;
-    std::cout << "Baseline:       " << time_baseline << " ms" << std::endl;
-    std::cout << "Multi-threaded: " << time_multi << " ms" << std::endl;
-    std::cout << "Speed-up:       " << speedup << "x" << std::endl;
+    std::cerr << "\nWall-clock time:" << std::endl;
+    std::cerr << "Baseline:       " << time_baseline << " ms" << std::endl;
+    std::cerr << "Multi-threaded: " << time_multi << " ms" << std::endl;
+    std::cerr << "Speed-up:       " << speedup << "x" << std::endl;
 
     if (sum_baseline != sum_multi) {
         std::cerr << "Sum results are not the same, baseline is "<< sum_baseline << ", multi threaded is " << sum_multi << std::endl;
