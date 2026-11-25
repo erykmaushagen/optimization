@@ -22,10 +22,49 @@ int baseline_bonus_error(uint32_t *allBonuses, const uint32_t *wrongBonus, size_
     }
     return sum;
 }
+void helper(uint32_t *allBonuses, const uint32_t *wrongBonus,
+            uint64_t *intermediate_sum, size_t start, size_t end) {
+    uint64_t sum = 0;
+    for (size_t i = start; i < end; ++i) {
+        uint32_t bonus = filtered_bonus(allBonuses[wrongBonus[i]]);
+        sum += bonus;
+    }
+    *intermediate_sum = sum;
+}
 
-int multi_bonus_error(uint32_t *allBonuses, const uint32_t *wrongBonus, size_t wrongBonusSize) {
-    
-    return 0;
+int multi_bonus_error(uint32_t *allBonuses, const uint32_t *wrongBonus,
+                      size_t wrongBonusSize) {
+    const size_t thread_count = 7;
+    const size_t thread_capacity = wrongBonusSize / thread_count;
+
+    uint64_t *intermediate_sum = new uint64_t[thread_count];
+    std::thread threads[thread_count];
+
+    // Threads starten
+    for (size_t t = 0; t < thread_count; ++t) {
+        size_t start = t * thread_capacity;
+        size_t end;
+        if (t == thread_count - 1) {
+            end = wrongBonusSize;
+        } else {
+            end = start + thread_capacity;
+        }
+
+        threads[t] = std::thread(helper, allBonuses, wrongBonus,
+                                 &intermediate_sum[t], start, end);
+    }
+
+    for (size_t t = 0; t < thread_count; ++t) {
+        threads[t].join();
+    }
+
+    uint64_t sum = 0;
+    for (size_t t = 0; t < thread_count; ++t) {
+        sum += intermediate_sum[t];
+    }
+
+    delete[] intermediate_sum;
+    return sum;
 }
 
 bool run_benchmark(uint32_t *allBonuses, const uint32_t *wrongBonus, const std::size_t elements, const uint16_t iterations) {
